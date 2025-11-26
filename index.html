@@ -1,119 +1,127 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>AES Encryptor</title>
-    <style>
-        body { font-family: sans-serif; margin: 20px; max-width: 800px; }
-        textarea, input { width: 100%; padding: 10px; margin-top: 5px; }
-        button { margin-top: 10px; padding: 10px 20px; }
-        .row { margin-bottom: 20px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Encryptor</title>
+  <link rel="icon" type="image/png" href="assets/e_d_icon.png">
+  <link rel="stylesheet" href="app.css">
 </head>
 <body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero__top">
+        <div class="pill pill--accent">
+          <span class="dot"></span>
+          Client-side only
+        </div>
+        <div class="meta">PBKDF2 · AES-GCM · Base64</div>
+      </div>
+      <h1>Encryptor</h1>
+      <p class="lede">Choose a mode, enter your master password, and encrypt or decrypt entirely in your browser.</p>
+    </header>
 
-<h2> Encryption Tool </h2>
+    <section class="card mode-card">
+      <div class="label">Mode</div>
+      <div class="mode-toggle">
+        <div class="mode-indicator" data-mode-indicator></div>
+        <button type="button" data-mode-option="encrypt" aria-pressed="true" class="mode-btn">Encrypt</button>
+        <button type="button" data-mode-option="decrypt" aria-pressed="false" class="mode-btn">Decrypt</button>
+      </div>
+    </section>
 
-<div class="row">
-    <label>Password:</label>
-    <input type="password" id="password">
-</div>
+    <section class="card password-card">
+      <div class="card__header">
+        <div>
+          <p class="label">Master password</p>
+          <p class="muted">Used to derive your encryption key. Keep it strong.</p>
+        </div>
+        <div class="pill">Private by design</div>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="input-row">
+          <input id="password" name="password" type="password" autocomplete="off" placeholder="Enter a strong password">
+          <button type="button" class="btn btn-ghost" data-toggle-password aria-pressed="false">Show</button>
+        </div>
+      </div>
+      <div class="strength" aria-live="polite">
+        <div class="strength-grid">
+          <div class="strength-seg" data-strength-seg></div>
+          <div class="strength-seg" data-strength-seg></div>
+          <div class="strength-seg" data-strength-seg></div>
+        </div>
+        <div class="strength__info">
+          <span data-strength-label>Strength: —</span>
+          <span data-strength-hint>Use 12+ characters with numbers & symbols.</span>
+        </div>
+      </div>
+    </section>
 
-<div class="row">
-    <h3>Encrypt</h3>
-    <textarea id="plaintext" rows="4" placeholder="Enter text to encrypt"></textarea>
-    <button onclick="encrypt()">Encrypt</button>
-    <textarea id="encrypted" rows="4" placeholder="Encrypted output"></textarea>
-</div>
+    <section class="card operation-card">
+      <div class="panel-wrapper">
+        <div class="panel card-visible" data-panel="encrypt">
+          <div class="panel__header">
+            <div>
+              <p class="label">Encrypt</p>
+              <h2>Turn text into secure Base64</h2>
+            </div>
+            <button class="btn btn-primary" type="button" data-action="encrypt">Encrypt</button>
+          </div>
+          <div class="panel__body">
+            <div class="field">
+              <label for="plaintext">Plaintext</label>
+              <textarea id="plaintext" name="plaintext" rows="4" placeholder="Type or paste text to encrypt"></textarea>
+            </div>
+            <div class="field">
+              <div class="field__top">
+                <label for="encrypted">Encrypted Base64</label>
+                <button class="btn btn-link" type="button" data-copy="encrypted">Copy</button>
+              </div>
+              <textarea id="encrypted" name="encrypted" rows="4" placeholder="Encrypted output" readonly></textarea>
+            </div>
+            <p class="muted small">Format: Base64(salt16 | nonce12 | ciphertext+tag).</p>
+          </div>
+        </div>
 
-<div class="row">
-    <h3>Decrypt</h3>
-    <textarea id="encoded" rows="4" placeholder="Enter Base64 to decrypt"></textarea>
-    <button onclick="decrypt()">Decrypt</button>
-    <textarea id="decrypted" rows="4" placeholder="Decrypted output"></textarea>
-</div>
+        <div class="panel card-hidden" data-panel="decrypt">
+          <div class="panel__header">
+            <div>
+              <p class="label">Decrypt</p>
+              <h2>Restore text from Base64</h2>
+            </div>
+            <button class="btn btn-primary" type="button" data-action="decrypt">Decrypt</button>
+          </div>
+          <div class="panel__body">
+            <div class="field">
+              <label for="encoded">Ciphertext (Base64)</label>
+              <textarea id="encoded" name="encoded" rows="4" placeholder="Paste encrypted Base64 payload"></textarea>
+            </div>
+            <div class="field">
+              <div class="field__top">
+                <label for="decrypted">Decrypted text</label>
+                <button class="btn btn-link" type="button" data-copy="decrypted">Copy</button>
+              </div>
+              <textarea id="decrypted" name="decrypted" rows="4" placeholder="Decrypted output" readonly></textarea>
+            </div>
+            <p class="muted small">Ensure the password matches what was used to encrypt.</p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-<script>
-async function deriveKey(password, salt) {
-    const enc = new TextEncoder();
-    const keyMaterial = await window.crypto.subtle.importKey(
-        "raw",
-        enc.encode(password),
-        {name: "PBKDF2"},
-        false,
-        ["deriveKey"]
-    );
+    <section aria-live="polite" aria-atomic="true">
+      <div class="status-pill" data-status>
+        <span class="status-dot"></span>
+        <span data-status-text>Ready to encrypt or decrypt.</span>
+      </div>
+    </section>
 
-    return window.crypto.subtle.deriveKey(
-        {
-            name: "PBKDF2",
-            salt: salt,
-            iterations: 200000,
-            hash: "SHA-256"
-        },
-        keyMaterial,
-        {name: "AES-GCM", length: 256},
-        false,
-        ["encrypt", "decrypt"]
-    );
-}
+    <footer class="footer small muted">
+      All cryptography runs locally in your browser using Web Crypto. There is no password recovery—keep backups.
+    </footer>
+  </div>
 
-function base64Encode(buf) {
-    return btoa(String.fromCharCode(...new Uint8Array(buf)));
-}
-
-function base64Decode(str) {
-    return Uint8Array.from(atob(str), c => c.charCodeAt(0));
-}
-
-async function encrypt() {
-    const password = document.getElementById("password").value;
-    const text = document.getElementById("plaintext").value;
-
-    const enc = new TextEncoder();
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const nonce = crypto.getRandomValues(new Uint8Array(12));
-
-    const key = await deriveKey(password, salt);
-    const encrypted = await window.crypto.subtle.encrypt(
-        {name: "AES-GCM", iv: nonce},
-        key,
-        enc.encode(text)
-    );
-
-    const combined = new Uint8Array(salt.length + nonce.length + encrypted.byteLength);
-    combined.set(salt, 0);
-    combined.set(nonce, salt.length);
-    combined.set(new Uint8Array(encrypted), salt.length + nonce.length);
-
-    document.getElementById("encrypted").value = base64Encode(combined);
-}
-
-async function decrypt() {
-    const password = document.getElementById("password").value;
-    const encoded = document.getElementById("encoded").value;
-
-    const data = base64Decode(encoded);
-    const salt = data.slice(0, 16);
-    const nonce = data.slice(16, 28);
-    const ciphertext = data.slice(28);
-
-    const key = await deriveKey(password, salt);
-
-    try {
-        const decrypted = await window.crypto.subtle.decrypt(
-            {name: "AES-GCM", iv: nonce},
-            key,
-            ciphertext
-        );
-        document.getElementById("decrypted").value =
-            new TextDecoder().decode(decrypted);
-
-    } catch (e) {
-        alert("Wrong password or corrupted data.");
-    }
-}
-</script>
-
+  <script type="module" src="app.js"></script>
 </body>
 </html>
