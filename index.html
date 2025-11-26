@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AES Encryptor</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; max-width: 800px; }
+        textarea, input { width: 100%; padding: 10px; margin-top: 5px; }
+        button { margin-top: 10px; padding: 10px 20px; }
+        .row { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<h2> Encryption Tool </h2>
+
+<div class="row">
+    <label>Password:</label>
+    <input type="password" id="password">
+</div>
+
+<div class="row">
+    <h3>Encrypt</h3>
+    <textarea id="plaintext" rows="4" placeholder="Enter text to encrypt"></textarea>
+    <button onclick="encrypt()">Encrypt</button>
+    <textarea id="encrypted" rows="4" placeholder="Encrypted output"></textarea>
+</div>
+
+<div class="row">
+    <h3>Decrypt</h3>
+    <textarea id="encoded" rows="4" placeholder="Enter Base64 to decrypt"></textarea>
+    <button onclick="decrypt()">Decrypt</button>
+    <textarea id="decrypted" rows="4" placeholder="Decrypted output"></textarea>
+</div>
+
+<script>
+async function deriveKey(password, salt) {
+    const enc = new TextEncoder();
+    const keyMaterial = await window.crypto.subtle.importKey(
+        "raw",
+        enc.encode(password),
+        {name: "PBKDF2"},
+        false,
+        ["deriveKey"]
+    );
+
+    return window.crypto.subtle.deriveKey(
+        {
+            name: "PBKDF2",
+            salt: salt,
+            iterations: 200000,
+            hash: "SHA-256"
+        },
+        keyMaterial,
+        {name: "AES-GCM", length: 256},
+        false,
+        ["encrypt", "decrypt"]
+    );
+}
+
+function base64Encode(buf) {
+    return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+
+function base64Decode(str) {
+    return Uint8Array.from(atob(str), c => c.charCodeAt(0));
+}
+
+async function encrypt() {
+    const password = document.getElementById("password").value;
+    const text = document.getElementById("plaintext").value;
+
+    const enc = new TextEncoder();
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const nonce = crypto.getRandomValues(new Uint8Array(12));
+
+    const key = await deriveKey(password, salt);
+    const encrypted = await window.crypto.subtle.encrypt(
+        {name: "AES-GCM", iv: nonce},
+        key,
+        enc.encode(text)
+    );
+
+    const combined = new Uint8Array(salt.length + nonce.length + encrypted.byteLength);
+    combined.set(salt, 0);
+    combined.set(nonce, salt.length);
+    combined.set(new Uint8Array(encrypted), salt.length + nonce.length);
+
+    document.getElementById("encrypted").value = base64Encode(combined);
+}
+
+async function decrypt() {
+    const password = document.getElementById("password").value;
+    const encoded = document.getElementById("encoded").value;
+
+    const data = base64Decode(encoded);
+    const salt = data.slice(0, 16);
+    const nonce = data.slice(16, 28);
+    const ciphertext = data.slice(28);
+
+    const key = await deriveKey(password, salt);
+
+    try {
+        const decrypted = await window.crypto.subtle.decrypt(
+            {name: "AES-GCM", iv: nonce},
+            key,
+            ciphertext
+        );
+        document.getElementById("decrypted").value =
+            new TextDecoder().decode(decrypted);
+
+    } catch (e) {
+        alert("Wrong password or corrupted data.");
+    }
+}
+</script>
+
+</body>
+</html>
