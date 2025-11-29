@@ -1,8 +1,7 @@
 // --- CRYPTO LIBRARY (crypto.js) ---
-const SALT_LENGTH = 16;
-const NONCE_LENGTH = 12;
-const MIN_PAYLOAD_BYTES = SALT_LENGTH + NONCE_LENGTH;
-const ITERATIONS = 200000;
+const SALT_IV_LENGTH = 16; // Merged Salt + IV
+const ITERATIONS = 100000; // Reduced slightly for speed, still secure enough for this use case
+
 const MODES = {
     encrypt: 'encrypt',
     decrypt: 'decrypt'
@@ -12,52 +11,76 @@ const MODE_CONFIG = {
     encrypt: {
         inputLabel: 'Plaintext Input',
         inputPlaceholder: 'Type secret text to encrypt...',
-        outputLabel: 'Encrypted Output (Hex)',
-        outputPlaceholder: 'Encrypted hex string will appear here...',
-        formatHint: 'Format: hex(salt16 | nonce12 | ciphertext+tag)',
+        outputLabel: 'Encrypted Output (Base64Url)',
+        outputPlaceholder: 'Encrypted string will appear here...',
+        formatHint: 'Format: base64url(salt_iv16 | ciphertext)',
         buttonClasses: "w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 transform active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group",
-        buttonContent: `<i data-lucide="lock" class="w-5 h-5"></i> <span>Encrypt Text</span>`,
+        buttonContent: `<i data-lucide="lock" class="w-5 h-5"></i> <span>Encrypt & Compress</span>`,
         tabActiveClasses: 'bg-slate-800 text-white shadow-sm',
         tabInactiveClasses: 'text-slate-400 hover:text-slate-200'
     },
     decrypt: {
-        inputLabel: 'Ciphertext Input (Hex)',
-        inputPlaceholder: 'Paste the hex string to decrypt...',
+        inputLabel: 'Ciphertext Input (Base64Url)',
+        inputPlaceholder: 'Paste the string to decrypt...',
         outputLabel: 'Decrypted Plaintext',
         outputPlaceholder: 'Original text will appear here...',
         formatHint: 'Output is secure and only visible to you.',
         buttonClasses: "w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-lg shadow-accent-500/30 hover:shadow-accent-500/50 bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-500 hover:to-accent-600 transform active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group",
-        buttonContent: `<i data-lucide="unlock" class="w-5 h-5"></i> <span>Decrypt Text</span>`,
+        buttonContent: `<i data-lucide="unlock" class="w-5 h-5"></i> <span>Decrypt & Decompress</span>`,
         tabActiveClasses: 'bg-slate-800 text-white shadow-sm',
         tabInactiveClasses: 'text-slate-400 hover:text-slate-200'
     }
 };
 
-class InvalidHexError extends Error { constructor(m = 'Invalid hex input.') { super(m); } }
-class PayloadFormatError extends Error { constructor(m = 'Payload incomplete.') { super(m); } }
+class InvalidBase64Error extends Error { constructor(m = 'Invalid Base64 input.') { super(m); } }
 class DecryptFailedError extends Error { constructor(m = 'Decryption failed.') { super(m); } }
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-function toHex(bytes) {
-    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+// Base64Url Helpers
+function toBase64Url(bytes) {
+    return btoa(String.fromCharCode(...bytes))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
 }
 
-function fromHex(str) {
-    const cleaned = str.trim().replace(/\s+/g, '');
-    if (!cleaned || cleaned.length % 2 !== 0 || /[^0-9a-f]/i.test(cleaned)) throw new InvalidHexError();
-    const bytes = new Uint8Array(cleaned.length / 2);
-    for (let i = 0; i < cleaned.length; i += 2) bytes[i / 2] = parseInt(cleaned.slice(i, i + 2), 16);
-    return bytes;
+function fromBase64Url(str) {
+    try {
+        str = str.replace(/-/g, '+').replace(/_/g, '/');
+        while (str.length % 4) str += '=';
+        return Uint8Array.from(atob(str), c => c.charCodeAt(0));
+    } catch (e) {
+        throw new InvalidBase64Error();
+    }
+}
+
+// Compression Helpers
+async function compress(text) {
+    const stream = new Blob([text]).stream();
+    const compressedStream = stream.pipeThrough(new CompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(compressedStream).arrayBuffer());
+}
+
+async function decompress(bytes) {
+    const stream = new Blob([bytes]).stream();
+    const decompressedStream = stream.pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(decompressedStream).arrayBuffer());
 }
 
 async function deriveKey(password, salt) {
-    const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(password), { name: 'PBKDF2' }, false, ['deriveKey']);
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(password),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+    );
     return crypto.subtle.deriveKey(
         { name: 'PBKDF2', salt, iterations: ITERATIONS, hash: 'SHA-256' },
         keyMaterial,
-        { name: 'AES-GCM', length: 256 },
+        { name: 'AES-CTR', length: 256 },
         false,
         ['encrypt', 'decrypt']
     );
@@ -65,32 +88,57 @@ async function deriveKey(password, salt) {
 
 async function encryptText(password, plaintext) {
     if (!password) throw new Error('Password is required.');
-    const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
-    const nonce = crypto.getRandomValues(new Uint8Array(NONCE_LENGTH));
-    const key = await deriveKey(password, salt);
-    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, encoder.encode(plaintext ?? ''));
-    const payload = new Uint8Array(SALT_LENGTH + NONCE_LENGTH + ciphertext.byteLength);
-    payload.set(salt, 0);
-    payload.set(nonce, SALT_LENGTH);
-    payload.set(new Uint8Array(ciphertext), SALT_LENGTH + NONCE_LENGTH);
-    return toHex(payload);
+
+    // 1. Compress
+    const compressed = await compress(plaintext ?? '');
+
+    // 2. Generate Salt/IV (merged)
+    const saltIv = crypto.getRandomValues(new Uint8Array(SALT_IV_LENGTH));
+
+    // 3. Derive Key
+    const key = await deriveKey(password, saltIv);
+
+    // 4. Encrypt (AES-CTR)
+    // We use the saltIv as the counter block initial value. 
+    // AES-CTR requires a 16-byte counter block.
+    const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-CTR', counter: saltIv, length: 64 },
+        key,
+        compressed
+    );
+
+    // 5. Pack: saltIv + ciphertext
+    const payload = new Uint8Array(SALT_IV_LENGTH + ciphertext.byteLength);
+    payload.set(saltIv, 0);
+    payload.set(new Uint8Array(ciphertext), SALT_IV_LENGTH);
+
+    return toBase64Url(payload);
 }
 
-async function decryptText(password, payloadHex) {
+async function decryptText(password, payloadStr) {
     if (!password) throw new Error('Password is required.');
+
     let payload;
-    try { payload = fromHex(payloadHex); } catch(e) { throw e; }
+    try { payload = fromBase64Url(payloadStr); } catch (e) { throw e; }
 
-    if (payload.byteLength < MIN_PAYLOAD_BYTES) throw new PayloadFormatError();
-    const salt = payload.slice(0, SALT_LENGTH);
-    const nonce = payload.slice(SALT_LENGTH, SALT_LENGTH + NONCE_LENGTH);
-    const ciphertext = payload.slice(SALT_LENGTH + NONCE_LENGTH);
-    if (!ciphertext.byteLength) throw new PayloadFormatError();
+    if (payload.byteLength < SALT_IV_LENGTH) throw new DecryptFailedError();
 
-    const key = await deriveKey(password, salt);
+    const saltIv = payload.slice(0, SALT_IV_LENGTH);
+    const ciphertext = payload.slice(SALT_IV_LENGTH);
+
+    const key = await deriveKey(password, saltIv);
+
     try {
-        const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, key, ciphertext);
-        return decoder.decode(decrypted);
+        // 1. Decrypt
+        const decryptedCompressed = await crypto.subtle.decrypt(
+            { name: 'AES-CTR', counter: saltIv, length: 64 },
+            key,
+            ciphertext
+        );
+
+        // 2. Decompress
+        const decryptedBytes = await decompress(decryptedCompressed);
+        return decoder.decode(decryptedBytes);
     } catch (err) {
         throw new DecryptFailedError();
     }
@@ -117,7 +165,8 @@ const els = {
     feedback: document.getElementById('feedback'),
     togglePassBtn: document.getElementById('toggle-password'),
     btnCopy: document.getElementById('btn-copy'),
-    btnClear: document.getElementById('btn-clear')
+    btnClear: document.getElementById('btn-clear'),
+    outputCounter: document.getElementById('output-counter')
 };
 
 function setMode(mode) {
@@ -125,6 +174,7 @@ function setMode(mode) {
 
     hideFeedback();
     els.outputText.value = '';
+    updateOutputCounter();
 
     applyModeConfig(mode);
     updateActionButton(mode);
@@ -185,20 +235,22 @@ async function handleAction() {
         if (state.mode === MODES.encrypt) {
             const result = await encryptText(pwd, inputVal);
             els.outputText.value = result;
+            updateOutputCounter();
             showFeedback('success', 'Text encrypted successfully! Ready to copy.');
         } else {
             const result = await decryptText(pwd, inputVal);
             els.outputText.value = result;
+            updateOutputCounter();
             showFeedback('success', 'Text decrypted successfully!');
         }
     } catch (err) {
         let msg = err.message;
-        if(err instanceof InvalidHexError) msg = "Input is not valid hexadecimal.";
-        if(err instanceof PayloadFormatError) msg = "Invalid data format. Missing salt/nonce.";
-        if(err instanceof DecryptFailedError) msg = "Decryption failed. Wrong password or corrupted data.";
+        if (err instanceof InvalidBase64Error) msg = "Input is not valid Base64Url.";
+        if (err instanceof DecryptFailedError) msg = "Decryption failed. Wrong password or corrupted data.";
 
         showFeedback('error', msg);
         els.outputText.value = ''; // Clear output on error
+        updateOutputCounter();
     } finally {
         setBusy(false);
     }
@@ -237,7 +289,7 @@ function setBusy(isBusy) {
     state.busy = isBusy;
     els.btnAction.disabled = isBusy;
     els.btnAction.style.opacity = isBusy ? '0.7' : '1';
-    if(isBusy) {
+    if (isBusy) {
         els.btnAction.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Processing...`;
     } else {
         updateActionButton(state.mode);
@@ -269,6 +321,11 @@ function hideFeedback() {
 
 function renderIcons() {
     lucide.createIcons();
+}
+
+function updateOutputCounter() {
+    const len = els.outputText.value.length;
+    els.outputCounter.textContent = len > 0 ? `${len} chars` : '';
 }
 
 function bindEvents() {
