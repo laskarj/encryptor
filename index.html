@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Encryptor - Secure Text Utility</title>
 
     <!-- Favicon (Lock Icon from Lucide) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='11' width='18' height='11' rx='2' ry='2'></rect><path d='M7 11V7a5 5 0 0 1 10 0v4'></path></svg>">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='11' width='18' height='11' rx='2' ry='2'></rect><path d='M7 11V7a5 5 0 0 1 10 0v4'></path></svg>">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,29 +24,34 @@
 
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="text-slate-200 min-h-screen flex flex-col items-center py-8 px-4 sm:px-6 selection:bg-primary-500/30 selection:text-primary-200">
+
+<body
+    class="text-slate-200 min-h-screen flex flex-col items-center py-8 px-4 sm:px-6 selection:bg-primary-500/30 selection:text-primary-200">
 
     <div class="w-full max-w-xl flex flex-col gap-6">
 
         <!-- Header -->
         <header class="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div class="flex items-center gap-3">
-                <div class="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/20">
+                <div
+                    class="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/20">
                     <i data-lucide="lock" class="w-6 h-6 text-white"></i>
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold text-white tracking-tight">Encryptor</h1>
-                    <p class="text-xs text-slate-400 font-medium tracking-wider uppercase">AES-GCM Text Utility</p>
+                    <p class="text-xs text-slate-400 font-medium tracking-wider uppercase">AES-CTR Text Utility</p>
                 </div>
             </div>
 
             <!-- Mode Toggle (Tabs) -->
             <div class="flex p-1 bg-slate-900/80 rounded-lg border border-slate-800">
-                <button id="tab-encrypt" type="button" class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 bg-slate-800 text-white shadow-sm">
+                <button id="tab-encrypt" type="button"
+                    class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 bg-slate-800 text-white shadow-sm">
                     <i data-lucide="shield-check" class="w-4 h-4"></i>
                     Encrypt
                 </button>
-                <button id="tab-decrypt" type="button" class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-slate-400 hover:text-slate-200 transition-all duration-200">
+                <button id="tab-decrypt" type="button"
+                    class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-slate-400 hover:text-slate-200 transition-all duration-200">
                     <i data-lucide="shield-alert" class="w-4 h-4"></i>
                     Decrypt
                 </button>
@@ -62,24 +69,19 @@
                     </label>
                     <div class="relative group">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i data-lucide="key" class="w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors"></i>
+                            <i data-lucide="key"
+                                class="w-4 h-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors"></i>
                         </div>
-                        <input
-                            type="password"
-                            id="password"
-                            placeholder="Enter a strong password"
+                        <input type="password" id="password" placeholder="Enter a strong password"
                             class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 p-3 transition-all placeholder-slate-600"
-                            autocomplete="off"
-                        >
-                        <button
-                            type="button"
-                            id="toggle-password"
-                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
-                        >
+                            autocomplete="off">
+                        <button type="button" id="toggle-password"
+                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 transition-colors">
                             <i data-lucide="eye" class="w-4 h-4"></i>
                         </button>
                     </div>
-                    <p class="text-xs text-slate-500 ml-1">Used to derive the AES-GCM key (PBKDF2 SHA-256, 200k iterations).</p>
+                    <p class="text-xs text-slate-500 ml-1">Used to derive the AES-CTR key (PBKDF2 SHA-256, 200k
+                        iterations).</p>
                 </div>
             </div>
 
@@ -92,54 +94,46 @@
                         <label id="label-input" for="input-text" class="text-sm font-semibold text-slate-300 ml-1">
                             Plaintext Input
                         </label>
-                        <button id="btn-clear" type="button" class="text-xs text-slate-500 hover:text-indigo-400 transition-colors flex items-center gap-1">
+                        <button id="btn-clear" type="button"
+                            class="text-xs text-slate-500 hover:text-indigo-400 transition-colors flex items-center gap-1">
                             <i data-lucide="trash-2" class="w-3 h-3"></i> Clear
                         </button>
                     </div>
-                    <textarea
-                        id="input-text"
-                        rows="5"
+                    <textarea id="input-text" rows="5"
                         class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block w-full p-4 font-mono transition-all placeholder-slate-600 resize-none"
-                        placeholder="Type or paste your text here..."
-                    ></textarea>
+                        placeholder="Type or paste your text here..."></textarea>
                 </div>
 
                 <!-- Action Button -->
-                <button
-                    id="btn-action"
-                    type="button"
-                    class="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 transform active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group"
-                >
+                <button id="btn-action" type="button"
+                    class="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 transform active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group">
                     <i data-lucide="lock" class="w-5 h-5 transition-transform group-hover:scale-110"></i>
                     <span>Encrypt Text</span>
                 </button>
 
                 <!-- Output Area -->
                 <div class="flex flex-col gap-2 relative">
-                    <label id="label-output" for="output-text" class="text-sm font-semibold text-slate-300 ml-1">
-                        Encrypted Output (Hex)
-                    </label>
+                    <div class="flex justify-between items-end">
+                        <label id="label-output" for="output-text" class="text-sm font-semibold text-slate-300 ml-1">
+                            Encrypted Output (Base64Url)
+                        </label>
+                        <span id="output-counter" class="text-xs text-slate-500 font-mono"></span>
+                    </div>
                     <div class="relative">
-                        <textarea
-                            id="output-text"
-                            rows="5"
-                            readonly
+                        <textarea id="output-text" rows="5" readonly
                             class="w-full bg-slate-950 border border-slate-800 text-slate-300 text-sm rounded-lg block w-full p-4 font-mono resize-none focus:outline-none focus:border-slate-600 transition-colors"
-                            placeholder="Result will appear here..."
-                        ></textarea>
+                            placeholder="Result will appear here..."></textarea>
                         <!-- Copy Button Overlay -->
                         <div class="absolute top-3 right-3">
-                            <button
-                                id="btn-copy"
-                                type="button"
-                                class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-xs font-medium text-slate-300 transition-all hover:text-white shadow-sm"
-                            >
+                            <button id="btn-copy" type="button"
+                                class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-xs font-medium text-slate-300 transition-all hover:text-white shadow-sm">
                                 <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                                 Copy
                             </button>
                         </div>
                     </div>
-                    <p class="text-xs text-slate-500 ml-1 font-mono" id="format-hint">Format: hex(salt16 | nonce12 | ciphertext+tag)</p>
+                    <p class="text-xs text-slate-500 ml-1 font-mono" id="format-hint">Format: base64url(saltIv16 |
+                        ciphertext)</p>
                 </div>
 
             </div>
@@ -158,4 +152,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>
